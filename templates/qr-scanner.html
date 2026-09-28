@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}QR Scanner Attendance{% endblock %}
+
+{% block content %}
+<div class="dashboard-header-row" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h2 style="font-size: 1.65rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px;">
+      <i class="ri-qr-scan-2-line" style="color: var(--primary-red);"></i>
+      <span>Automated QR Attendance Scanner</span>
+    </h2>
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">
+      Position student QR pass in front of the lens. Attendance is verified and recorded automatically.
+    </p>
+  </div>
+
+  <div style="display: flex; gap: 10px;">
+    <button type="button" class="btn btn-secondary" onclick="toggleScanner()">
+      <i id="scannerToggleIcon" class="ri-pause-line"></i>
+      <span id="scannerToggleText">Pause Scanner</span>
+    </button>
+    <a href="{{ url_for('attendance') }}" class="btn btn-outline-red">
+      <i class="ri-arrow-left-line"></i> Back
+    </a>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; align-items: start;">
+  <!-- LEFT: SCANNER VIEWPORT -->
+  <div class="glass-card" style="padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="live-pulse" style="width: 10px; height: 10px;"></span>
+        <span style="font-size: 0.85rem; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.05em;">
+          Optical Scanner Feed
+        </span>
+      </div>
+      <div style="font-size: 0.76rem; color: var(--text-dim);" class="font-mono">
+        Resolution: 720p HD
+      </div>
+    </div>
+
+    <!-- Scanner Box -->
+    <div class="camera-card">
+      <div id="qrReader" style="width: 100%; border: none;"></div>
+      
+      <!-- Visual scan overlay -->
+      <div id="scannerOverlay" class="scanner-overlay" style="pointer-events: none;">
+        <div class="scan-frame corner-brackets" style="width: 240px; height: 240px;">
+          <div class="laser-scanline"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Code Fallback -->
+    <div style="margin-top: 20px; background: rgba(13, 16, 24, 0.6); border: 1px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 14px 18px;">
+      <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">
+        <i class="ri-keyboard-line"></i> Manual Barcode / Student ID Fallback
+      </div>
+      <form onsubmit="handleManualQrSubmit(event)" style="display: flex; gap: 10px;">
+        <input type="text" id="manualQrInput" class="form-control font-mono" placeholder="Enter Student ID (e.g. STU-2026-001)" required>
+        <button type="submit" class="btn btn-primary" style="white-space: nowrap;">
+          <i class="ri-check-line"></i> Verify
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- RIGHT: REAL-TIME VERIFICATION HUD & TODAY'S LOGS -->
+  <div style="display: flex; flex-direction: column; gap: 20px;">
+    <!-- Last Scanned Student Card -->
+    <div class="glass-card" id="lastScannedCard" style="border-color: var(--border-red-subtle);">
+      <div class="card-title-row" style="margin-bottom: 12px;">
+        <h3 class="card-title" style="font-size: 1rem;">
+          <i class="ri-shield-user-line"></i> Last Verification
+        </h3>
+        <span id="scanStatusBadge" class="badge-status Present" style="display: none;">VERIFIED</span>
+      </div>
+
+      <div id="lastScannedEmpty" style="padding: 24px; text-align: center; color: var(--text-dim);">
+        <i class="ri-scan-2-line" style="font-size: 2.2rem; display: block; margin-bottom: 8px; color: var(--border-red-subtle);"></i>
+        Awaiting QR code scan...
+      </div>
+
+      <div id="lastScannedDetails" style="display: none;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+          <div style="width: 50px; height: 50px; border-radius: 12px; background: rgba(229, 9, 20, 0.15); border: 1px solid var(--border-red-subtle); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--neon-coral);">
+            <i class="ri-user-follow-line"></i>
+          </div>
+          <div>
+            <div id="scanResultName" style="font-size: 1.15rem; font-weight: 700; color: #fff;"></div>
+            <div id="scanResultId" class="font-mono" style="font-size: 0.84rem; color: var(--neon-coral); font-weight: 600;"></div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(10, 12, 18, 0.6); padding: 12px; border-radius: 10px; font-size: 0.8rem;">
+          <div>
+            <span style="color: var(--text-dim); display: block;">Department:</span>
+            <strong id="scanResultDept" style="color: #fff;"></strong>
+          </div>
+          <div>
+            <span style="color: var(--text-dim); display: block;">Class / Section:</span>
+            <strong id="scanResultClass" style="color: #fff;"></strong>
+          </div>
+          <div>
+            <span style="color: var(--text-dim); display: block;">Time Recorded:</span>
+            <strong id="scanResultTime" class="font-mono" style="color: var(--status-present);"></strong>
+          </div>
+          <div>
+            <span style="color: var(--text-dim); display: block;">Status Result:</span>
+            <strong id="scanResultStatus" style="color: #fff;"></strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Scanned List Today -->
+    <div class="glass-card" style="flex: 1;">
+      <div class="card-title-row" style="margin-bottom: 12px;">
+        <h3 class="card-title" style="font-size: 0.95rem;">
+          <i class="ri-list-check-2"></i> Today's Scanned Students
+        </h3>
+        <span class="badge-status Present font-mono" id="todayScannedCount">{{ stats.present_today + stats.late_today }} Checked In</span>
+      </div>
+
+      <div style="max-height: 280px; overflow-y: auto;">
+        <ul id="liveScanList" style="list-style: none; display: flex; flex-direction: column; gap: 8px;">
+          {% if stats.today_records %}
+            {% for r in stats.today_records %}
+              <li style="background: rgba(18, 22, 33, 0.45); padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                <div>
+                  <strong style="color: #fff;">{{ r.name }}</strong>
+                  <span class="font-mono" style="color: var(--text-muted); font-size: 0.75rem; margin-left: 6px;">{{ r.student_id }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="font-mono" style="color: var(--text-dim); font-size: 0.75rem;">{{ r.time }}</span>
+                  <span class="badge-status {{ r.status }}" style="font-size: 0.68rem; padding: 2px 8px;">{{ r.status }}</span>
+                </div>
+              </li>
+            {% endfor %}
+          {% else %}
+            <li id="emptyLiveListNote" style="text-align: center; padding: 20px; color: var(--text-dim); font-size: 0.82rem;">
+              No check-ins recorded yet today.
+            </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  let html5QrCode = null;
+  let isScanning = true;
+  let lastScanCooldownTime = 0;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initQrScanner();
+  });
+
+  function initQrScanner() {
+    html5QrCode = new Html5Qrcode("qrReader");
+
+    const config = {
+      fps: 15,
+      qrbox: { width: 250, height: 250 },
+      aspectRatio: 1.0
+    };
+
+    html5QrCode.start(
+      { facingMode: "environment" },
+      config,
+      onScanSuccess,
+      onScanFailure
+    ).catch(err => {
+      console.warn("Camera init failed with environment facingMode, trying default...", err);
+      html5QrCode.start(
+        { facingMode: "user" },
+        config,
+        onScanSuccess,
+        onScanFailure
+      ).catch(e2 => {
+        showToast('Camera Error', 'Could not open video device. You can use the manual ID input below.', 'warning');
+      });
+    });
+  }
+
+  async function onScanSuccess(decodedText, decodedResult) {
+    const now = Date.now();
+    // 3 second cooldown between identical/rapid scans
+    if (now - lastScanCooldownTime < 3000) {
+      return;
+    }
+    lastScanCooldownTime = now;
+
+    console.log("QR Decoded:", decodedText);
+    await verifyAndMarkQr(decodedText);
+  }
+
+  function onScanFailure(error) {
+    // Normal frame scanning misses are quiet
+  }
+
+  async function verifyAndMarkQr(qrString) {
+    try {
+      const res = await fetch("{{ url_for('api_mark_attendance_qr') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qr_data: qrString })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        AudioEngine.playSuccess();
+        showToast('Attendance Recorded', data.message, 'success');
+        updateLastScannedHUD(data.student, data.record, true);
+        prependToLiveList(data.student, data.record);
+      } else if (data.already_marked) {
+        AudioEngine.playWarning();
+        showToast('Duplicate Check-in', data.message, 'warning');
+        updateLastScannedHUD(data.student, data.record, false, 'ALREADY MARKED');
+      } else {
+        AudioEngine.playError();
+        showToast('Verification Failed', data.message, 'error');
+      }
+    } catch (err) {
+      showToast('Error', err.message, 'error');
+    }
+  }
+
+  function updateLastScannedHUD(student, record, isSuccess, customBadgeText) {
+    document.getElementById('lastScannedEmpty').style.display = 'none';
+    document.getElementById('lastScannedDetails').style.display = 'block';
+
+    const badge = document.getElementById('scanStatusBadge');
+    badge.style.display = 'inline-flex';
+    badge.textContent = customBadgeText || (record ? record.status : 'VERIFIED');
+    badge.className = `badge-status ${record ? record.status : 'Present'}`;
+
+    if (student) {
+      document.getElementById('scanResultName').textContent = student.name;
+      document.getElementById('scanResultId').textContent = `${student.student_id} • Roll: ${student.roll_no}`;
+      document.getElementById('scanResultDept').textContent = student.department;
+      document.getElementById('scanResultClass').textContent = student.class_name;
+    }
+    if (record) {
+      document.getElementById('scanResultTime').textContent = record.time;
+      document.getElementById('scanResultStatus').textContent = `${record.status} (${record.method})`;
+    }
+  }
+
+  function prependToLiveList(student, record) {
+    const list = document.getElementById('liveScanList');
+    const emptyNote = document.getElementById('emptyLiveListNote');
+    if (emptyNote) emptyNote.remove();
+
+    const li = document.createElement('li');
+    li.style.cssText = 'background: rgba(18, 22, 33, 0.45); padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; animation: toast-in 0.3s ease; border-left: 3px solid var(--status-present);';
+    li.innerHTML = `
+      <div>
+        <strong style="color: #fff;">${student.name}</strong>
+        <span class="font-mono" style="color: var(--text-muted); font-size: 0.75rem; margin-left: 6px;">${student.student_id}</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="font-mono" style="color: var(--text-dim); font-size: 0.75rem;">${record.time}</span>
+        <span class="badge-status ${record.status}" style="font-size: 0.68rem; padding: 2px 8px;">${record.status}</span>
+      </div>
+    `;
+    list.insertBefore(li, list.firstChild);
+  }
+
+  function handleManualQrSubmit(e) {
+    e.preventDefault();
+    const val = document.getElementById('manualQrInput').value.trim();
+    if (val) {
+      verifyAndMarkQr(val);
+      document.getElementById('manualQrInput').value = '';
+    }
+  }
+
+  function toggleScanner() {
+    if (!html5QrCode) return;
+    const icon = document.getElementById('scannerToggleIcon');
+    const text = document.getElementById('scannerToggleText');
+
+    if (isScanning) {
+      html5QrCode.pause();
+      isScanning = false;
+      icon.className = 'ri-play-line';
+      text.textContent = 'Resume Scanner';
+      showToast('Scanner Paused', 'Optical feed paused.', 'info');
+    } else {
+      html5QrCode.resume();
+      isScanning = true;
+      icon.className = 'ri-pause-line';
+      text.textContent = 'Pause Scanner';
+      showToast('Scanner Active', 'Scanning for student passes.', 'info');
+    }
+  }
+</script>
+{% endblock %}

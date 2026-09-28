@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Reports{% endblock %}
+
+{% block content %}
+<div class="dashboard-header-row" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h2 style="font-size: 1.65rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px;">
+      <i class="ri-file-chart-line" style="color: var(--primary-red);"></i>
+      <span>Institutional Attendance Reports</span>
+    </h2>
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">
+      Generate authenticated daily and monthly compliance audits with instant CSV and PDF downloads.
+    </p>
+  </div>
+
+  <div style="display: flex; gap: 10px;">
+    <a href="{{ url_for('api_export_csv', date=selected_date, department=selected_dept, status=selected_status) }}" class="btn btn-outline-red">
+      <i class="ri-file-excel-2-line"></i> Download CSV
+    </a>
+    <button type="button" class="btn btn-primary" onclick="printReportDocument()">
+      <i class="ri-file-pdf-2-line"></i> Download PDF
+    </button>
+  </div>
+</div>
+
+<!-- REPORT CONFIGURATION TOOLBAR -->
+<div class="glass-card" style="padding: 20px; margin-bottom: 24px;">
+  <form method="GET" action="{{ url_for('reports') }}" style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 1; min-width: 170px;">
+      <label class="form-label"><i class="ri-calendar-event-line"></i> Report Date</label>
+      <input type="date" name="date" class="form-control" value="{{ selected_date }}">
+    </div>
+
+    <div style="flex: 1; min-width: 180px;">
+      <label class="form-label"><i class="ri-community-line"></i> Department</label>
+      <select name="department" class="form-select">
+        <option value="">All Academic Depts</option>
+        {% for d in departments %}
+          <option value="{{ d }}" {% if selected_dept == d %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="flex: 1; min-width: 160px;">
+      <label class="form-label"><i class="ri-filter-2-line"></i> Verification Status</label>
+      <select name="status" class="form-select">
+        <option value="">All Statuses</option>
+        <option value="Present" {% if selected_status == 'Present' %}selected{% endif %}>Present Only</option>
+        <option value="Late" {% if selected_status == 'Late' %}selected{% endif %}>Late Only</option>
+        <option value="Absent" {% if selected_status == 'Absent' %}selected{% endif %}>Absent Only</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="height: 44px;">
+      <i class="ri-refresh-line"></i> Generate Report
+    </button>
+
+    <button type="button" class="btn btn-secondary" style="height: 44px;" onclick="setTodayDate()">
+      Today
+    </button>
+  </form>
+</div>
+
+<!-- SUMMARY KPIS FOR GENERATED REPORT -->
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px;">
+  <div class="stat-card total">
+    <div class="stat-icon-wrapper"><i class="ri-file-list-3-line"></i></div>
+    <div class="stat-info">
+      <div class="stat-label">Total Logged</div>
+      <div class="stat-value font-mono">{{ summary.total_records }}</div>
+      <div class="stat-trend">Sessions Analyzed</div>
+    </div>
+  </div>
+
+  <div class="stat-card present">
+    <div class="stat-icon-wrapper"><i class="ri-user-follow-line"></i></div>
+    <div class="stat-info">
+      <div class="stat-label">Present</div>
+      <div class="stat-value font-mono">{{ summary.present_count }}</div>
+      <div class="stat-trend" style="color: var(--status-present);">On-Time Arrival</div>
+    </div>
+  </div>
+
+  <div class="stat-card late">
+    <div class="stat-icon-wrapper"><i class="ri-time-line"></i></div>
+    <div class="stat-info">
+      <div class="stat-label">Late Arrivals</div>
+      <div class="stat-value font-mono">{{ summary.late_count }}</div>
+      <div class="stat-trend" style="color: var(--status-late);">Past Threshold</div>
+    </div>
+  </div>
+
+  <div class="stat-card rate">
+    <div class="stat-icon-wrapper"><i class="ri-pie-chart-line"></i></div>
+    <div class="stat-info">
+      <div class="stat-label">Report Turnout</div>
+      <div class="stat-value font-mono">{{ summary.percentage }}%</div>
+      <div class="stat-trend">Compliance Rate</div>
+    </div>
+  </div>
+</div>
+
+<!-- PRINTABLE OFFICIAL AUDIT REPORT TABLE -->
+<div class="glass-card" id="reportDocumentArea">
+  <div class="card-title-row" style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px; margin-bottom: 20px;">
+    <div>
+      <div style="font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--neon-coral); font-weight: 700;">
+        OFFICIAL REPORT AUDIT
+      </div>
+      <h3 style="font-size: 1.25rem; font-weight: 800; color: #fff; margin-top: 4px;">
+        {{ settings.get('institution_name', 'Apex Institute of Technology & AI') }}
+      </h3>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
+        Scope: Date <strong>{{ selected_date }}</strong> • Department: <strong>{{ selected_dept or 'All Departments' }}</strong>
+      </p>
+    </div>
+
+    <div style="text-align: right;">
+      <div class="system-badge font-mono">CONFIDENTIAL RECORD</div>
+      <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 6px;">
+        System: {{ settings.get('system_title', 'SMART ATTENDANCE') }}
+      </div>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Student ID</th>
+          <th>Roll No</th>
+          <th>Student Name</th>
+          <th>Department</th>
+          <th>Class</th>
+          <th>Time Logged</th>
+          <th>Status</th>
+          <th>Method</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if records %}
+          {% for r in records %}
+            <tr>
+              <td class="font-mono" style="color: var(--text-dim); font-size: 0.78rem;">{{ loop.index }}</td>
+              <td class="font-mono" style="color: var(--neon-coral); font-weight: 700;">{{ r.student_id }}</td>
+              <td class="font-mono">{{ r.roll_no }}</td>
+              <td style="font-weight: 700; color: #fff;">{{ r.name }}</td>
+              <td>{{ r.department }}</td>
+              <td>{{ r.class_name }}</td>
+              <td class="font-mono">{{ r.time }}</td>
+              <td>
+                <span class="badge-status {{ r.status }}">{{ r.status }}</span>
+              </td>
+              <td>
+                <span class="badge-method">
+                  {% if r.method == 'Face Recognition' %}
+                    <i class="ri-camera-lens-line" style="color: var(--neon-coral);"></i> Face ID
+                  {% elif r.method == 'QR Scan' %}
+                    <i class="ri-qr-scan-line" style="color: #60a5fa;"></i> QR Code
+                  {% else %}
+                    <i class="ri-keyboard-line"></i> Manual
+                  {% endif %}
+                </span>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-dim);">
+              <i class="ri-inbox-line" style="font-size: 2.2rem; display: block; margin-bottom: 8px;"></i>
+              No records found for the selected date and filters.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function setTodayDate() {
+    const today = new Date().toISOString().split('T')[0];
+    document.querySelector('input[name="date"]').value = today;
+    document.querySelector('form').submit();
+  }
+
+  function printReportDocument() {
+    const docHtml = document.getElementById('reportDocumentArea').innerHTML;
+    const printWindow = window.open('', '', 'width=950,height=800');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Attendance Audit Report - SMART ATTENDANCE</title>
+          <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #111; line-height: 1.4; }
+            h2, h3 { margin: 0 0 6px 0; color: #08090c; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+            th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+            th { background: #f3f4f6; text-transform: uppercase; font-size: 11px; font-weight: 700; }
+            .badge-status { font-weight: bold; }
+            .badge-status.Present { color: #059669; }
+            .badge-status.Late { color: #d97706; }
+            .badge-status.Absent { color: #dc2626; }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div style="border-bottom: 2px solid #e50914; padding-bottom: 12px; margin-bottom: 18px;">
+            <h2 style="color: #e50914;">SMART ATTENDANCE ENTERPRISE</h2>
+            <div>Official Institutional Compliance Audit Report</div>
+            <small style="color: #666;">Generated on ${new Date().toLocaleString()}</small>
+          </div>
+          ${docHtml}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 450);
+  }
+</script>
+{% endblock %}

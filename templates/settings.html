@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Settings & Rules{% endblock %}
+
+{% block content %}
+<div class="dashboard-header-row" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h2 style="font-size: 1.65rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px;">
+      <i class="ri-settings-4-line" style="color: var(--primary-red);"></i>
+      <span>System Rules & Administration</span>
+    </h2>
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">
+      Configure automated attendance rules, late thresholds, institutional branding, and admin security.
+    </p>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+  <!-- 1. ATTENDANCE RULES & POLICIES -->
+  <div class="glass-card">
+    <div class="card-title-row">
+      <div>
+        <h3 class="card-title">
+          <i class="ri-alarm-line"></i> Attendance Automation Rules
+        </h3>
+        <p class="card-subtitle">Enforce late thresholds and biometric confidence limits</p>
+      </div>
+    </div>
+
+    <form id="attendanceRulesForm" onsubmit="saveAttendanceSettings(event)">
+      <div class="form-group">
+        <label class="form-label">
+          <i class="ri-time-line"></i> Late Arrival Threshold Time
+        </label>
+        <input type="time" step="1" name="late_threshold" class="form-control font-mono" value="{{ settings.get('late_threshold', '09:30:00') }}" required>
+        <small style="color: var(--text-dim); display: block; margin-top: 6px;">
+          Check-ins verified after this exact timestamp are automatically tagged as <strong>LATE</strong>.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">
+          <i class="ri-scan-2-line"></i> Face Recognition Match Confidence (%)
+        </label>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <input type="range" name="face_confidence_threshold" min="50" max="95" value="{{ settings.get('face_confidence_threshold', '65') }}" class="form-control" style="padding: 0;" oninput="document.getElementById('confVal').textContent = this.value + '%'">
+          <span id="confVal" class="font-mono" style="font-weight: 700; color: var(--neon-coral); min-width: 50px;">{{ settings.get('face_confidence_threshold', '65') }}%</span>
+        </div>
+        <small style="color: var(--text-dim); display: block; margin-top: 6px;">
+          Faces with similarity scores below this threshold are immediately rejected as Unknown.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Academic Year / Cycle</label>
+        <input type="text" name="academic_year" class="form-control font-mono" value="{{ settings.get('academic_year', '2026-2027') }}" required>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%;">
+        <i class="ri-save-line"></i> Update Attendance Rules
+      </button>
+    </form>
+  </div>
+
+  <!-- 2. INSTITUTIONAL & SYSTEM BRANDING -->
+  <div class="glass-card">
+    <div class="card-title-row">
+      <div>
+        <h3 class="card-title">
+          <i class="ri-building-line"></i> Institutional Identity
+        </h3>
+        <p class="card-subtitle">Custom portal header branding and report headers</p>
+      </div>
+    </div>
+
+    <form id="brandingForm" onsubmit="saveBrandingSettings(event)">
+      <div class="form-group">
+        <label class="form-label">Institution / Organization Name</label>
+        <input type="text" name="institution_name" class="form-control" value="{{ settings.get('institution_name', 'Apex Institute of Technology & AI') }}" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">System Portal Name</label>
+        <input type="text" name="system_title" class="form-control" value="{{ settings.get('system_title', 'SMART ATTENDANCE') }}" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Motto / Tagline</label>
+        <input type="text" name="tagline" class="form-control" value="{{ settings.get('tagline', 'Attend Today for a Better Tomorrow') }}" required>
+      </div>
+
+      <button type="submit" class="btn btn-secondary" style="width: 100%;">
+        <i class="ri-check-line"></i> Save Branding
+      </button>
+    </form>
+  </div>
+
+  <!-- 3. ADMIN PROFILE & SECURITY -->
+  <div class="glass-card">
+    <div class="card-title-row">
+      <div>
+        <h3 class="card-title">
+          <i class="ri-lock-password-line"></i> Administrator Profile & Credentials
+        </h3>
+        <p class="card-subtitle">Update administrator name, email, or change password</p>
+      </div>
+    </div>
+
+    <form id="profileForm" onsubmit="saveAdminProfile(event)">
+      <div class="form-group">
+        <label class="form-label">Admin Full Name</label>
+        <input type="text" id="prof_name" name="name" class="form-control" value="{{ current_user.name if current_user else 'Chief Administrator' }}" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Registered Email</label>
+        <input type="email" id="prof_email" name="email" class="form-control" value="{{ current_user.email if current_user else 'admin@smartattendance.edu' }}" required>
+      </div>
+
+      <div style="border-top: 1px dashed var(--border-subtle); padding-top: 16px; margin-top: 16px;">
+        <span style="font-size: 0.8rem; font-weight: 700; color: var(--neon-coral); display: block; margin-bottom: 12px;">
+          Change Password (Leave blank to keep current)
+        </span>
+
+        <div class="form-group">
+          <label class="form-label">Current Password</label>
+          <input type="password" id="prof_curr_pass" name="current_password" class="form-control" placeholder="••••••••••••">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <input type="password" id="prof_new_pass" name="new_password" class="form-control" placeholder="Minimum 6 characters">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%;">
+        <i class="ri-shield-check-line"></i> Update Security Credentials
+      </button>
+    </form>
+  </div>
+
+  <!-- 4. SYSTEM DIAGNOSTICS & TELEMETRY -->
+  <div class="glass-card">
+    <div class="card-title-row">
+      <div>
+        <h3 class="card-title">
+          <i class="ri-cpu-line"></i> System Engine Diagnostics
+        </h3>
+        <p class="card-subtitle">Real-time subsystem health & verification pipelines</p>
+      </div>
+      <span class="badge-status Present font-mono">ALL SYSTEMS NORMAL</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="background: rgba(13, 16, 24, 0.7); padding: 14px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong style="color: #fff; display: block; font-size: 0.9rem;">Relational Database</strong>
+          <span style="color: var(--text-dim); font-size: 0.76rem;">SQLite 3 • database.db (ACID compliant)</span>
+        </div>
+        <span class="badge-status Present" style="font-size: 0.7rem;">Connected</span>
+      </div>
+
+      <div style="background: rgba(13, 16, 24, 0.7); padding: 14px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong style="color: #fff; display: block; font-size: 0.9rem;">Computer Vision Engine</strong>
+          <span style="color: var(--text-dim); font-size: 0.76rem;">OpenCV Haar Cascade + Cosine Biometrics</span>
+        </div>
+        <span class="badge-status Present" style="font-size: 0.7rem;">Initialized</span>
+      </div>
+
+      <div style="background: rgba(13, 16, 24, 0.7); padding: 14px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong style="color: #fff; display: block; font-size: 0.9rem;">QR Generation Engine</strong>
+          <span style="color: var(--text-dim); font-size: 0.76rem;">High-density PNG encoder with Student ID tokens</span>
+        </div>
+        <span class="badge-status Present" style="font-size: 0.7rem;">Active</span>
+      </div>
+
+      <div style="background: rgba(13, 16, 24, 0.7); padding: 14px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong style="color: #fff; display: block; font-size: 0.9rem;">Audio Feedback Engine</strong>
+          <span style="color: var(--text-dim); font-size: 0.76rem;">Browser Web Audio API Dual-Tone Synthesizer</span>
+        </div>
+        <span class="badge-status Present" style="font-size: 0.7rem;">Online</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  async function saveAttendanceSettings(e) {
+    e.preventDefault();
+    const form = document.getElementById('attendanceRulesForm');
+    const formData = new FormData(form);
+    const payload = Object.fromEntries(formData.entries());
+
+    try {
+      const res = await fetch("{{ url_for('api_update_settings') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Settings Saved', data.message, 'success');
+      } else {
+        showToast('Save Failed', data.message, 'error');
+      }
+    } catch (err) {
+      showToast('Error', err.message, 'error');
+    }
+  }
+
+  async function saveBrandingSettings(e) {
+    e.preventDefault();
+    const form = document.getElementById('brandingForm');
+    const formData = new FormData(form);
+    const payload = Object.fromEntries(formData.entries());
+
+    try {
+      const res = await fetch("{{ url_for('api_update_settings') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Branding Saved', data.message, 'success');
+        setTimeout(() => location.reload(), 800);
+      } else {
+        showToast('Save Failed', data.message, 'error');
+      }
+    } catch (err) {
+      showToast('Error', err.message, 'error');
+    }
+  }
+
+  async function saveAdminProfile(e) {
+    e.preventDefault();
+    const name = document.getElementById('prof_name').value.trim();
+    const email = document.getElementById('prof_email').value.trim();
+    const currPass = document.getElementById('prof_curr_pass').value.trim();
+    const newPass = document.getElementById('prof_new_pass').value.trim();
+
+    try {
+      const res = await fetch("{{ url_for('api_update_profile') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          current_password: currPass,
+          new_password: newPass
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Profile Updated', data.message, 'success');
+        document.getElementById('prof_curr_pass').value = '';
+        document.getElementById('prof_new_pass').value = '';
+      } else {
+        showToast('Update Failed', data.message, 'error');
+      }
+    } catch (err) {
+      showToast('Error', err.message, 'error');
+    }
+  }
+</script>
+{% endblock %}

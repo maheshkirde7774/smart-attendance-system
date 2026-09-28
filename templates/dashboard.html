@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-header-row" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 26px; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h2 style="font-size: 1.7rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 12px;">
+      <span>Overview Dashboard</span>
+      <span class="system-badge" style="background: rgba(0, 230, 118, 0.1); color: var(--status-present); border-color: rgba(0, 230, 118, 0.3);">
+        <i class="ri-checkbox-circle-fill"></i> Live Sync
+      </span>
+    </h2>
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">
+      Real-time automated biometric and QR verification telemetry for today: <strong>{{ current_date }}</strong>
+    </p>
+  </div>
+
+  <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+    <a href="{{ url_for('face_recognition_page') }}" class="btn btn-primary">
+      <i class="ri-camera-lens-fill"></i>
+      <span>Face Recognition</span>
+    </a>
+    <a href="{{ url_for('qr_scanner') }}" class="btn btn-secondary">
+      <i class="ri-qr-scan-2-line"></i>
+      <span>QR Scanner</span>
+    </a>
+    <a href="{{ url_for('api_export_csv') }}" class="btn btn-outline-red" title="Download Attendance CSV">
+      <i class="ri-download-2-line"></i>
+      <span>Export CSV</span>
+    </a>
+  </div>
+</div>
+
+<!-- STAT CARDS (5 METRICS) -->
+<div class="stats-grid">
+  <!-- 1. Total Students -->
+  <div class="stat-card total">
+    <div class="stat-icon-wrapper">
+      <i class="ri-group-line"></i>
+    </div>
+    <div class="stat-info">
+      <div class="stat-label">Total Students</div>
+      <div class="stat-value font-mono">{{ stats.total_students }}</div>
+      <div class="stat-trend"><i class="ri-community-line"></i> Enrolled across depts</div>
+    </div>
+  </div>
+
+  <!-- 2. Present Today -->
+  <div class="stat-card present">
+    <div class="stat-icon-wrapper">
+      <i class="ri-user-follow-line"></i>
+    </div>
+    <div class="stat-info">
+      <div class="stat-label">Present Today</div>
+      <div class="stat-value font-mono">{{ stats.present_today }}</div>
+      <div class="stat-trend" style="color: var(--status-present);">
+        <i class="ri-arrow-up-line"></i> On-time verified
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Late Today -->
+  <div class="stat-card late">
+    <div class="stat-icon-wrapper">
+      <i class="ri-time-line"></i>
+    </div>
+    <div class="stat-info">
+      <div class="stat-label">Late Today</div>
+      <div class="stat-value font-mono">{{ stats.late_today }}</div>
+      <div class="stat-trend" style="color: var(--status-late);">
+        <i class="ri-alarm-warning-line"></i> After {{ settings.get('late_threshold', '09:30') }}
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Absent Today -->
+  <div class="stat-card absent">
+    <div class="stat-icon-wrapper">
+      <i class="ri-user-unfollow-line"></i>
+    </div>
+    <div class="stat-info">
+      <div class="stat-label">Absent Today</div>
+      <div class="stat-value font-mono">{{ stats.absent_today }}</div>
+      <div class="stat-trend" style="color: var(--status-absent);">
+        <i class="ri-close-circle-line"></i> Pending check-in
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Attendance Percentage -->
+  <div class="stat-card rate">
+    <div class="stat-icon-wrapper">
+      <i class="ri-pie-chart-2-line"></i>
+    </div>
+    <div class="stat-info">
+      <div class="stat-label">Attendance Rate</div>
+      <div class="stat-value font-mono" style="color: var(--neon-coral);">{{ stats.attendance_percentage }}%</div>
+      <div class="stat-trend">
+        {{ stats.total_attended_today }} / {{ stats.total_students }} Total Checked In
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHARTS SECTION: WEEKLY TREND & TODAY'S BREAKDOWN -->
+<div class="charts-grid">
+  <!-- Weekly Attendance Trend (Bar & Line Chart) -->
+  <div class="glass-card">
+    <div class="card-title-row">
+      <div>
+        <h3 class="card-title">
+          <i class="ri-bar-chart-grouped-line"></i> Weekly Attendance Telemetry
+        </h3>
+        <p class="card-subtitle">Presence, Late Arrivals & Absenteeism over the past 7 days</p>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-dim);" class="font-mono">
+        Aggregated Daily
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="weeklyAttendanceChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Today's Attendance Breakdown (Doughnut Chart) -->
+  <div class="glass-card">
+    <div class="card-title-row">
+      <div>
+        <h3 class="card-title">
+          <i class="ri-donut-chart-line"></i> Today's Breakdown
+        </h3>
+        <p class="card-subtitle">Ratio of Present, Late & Absent</p>
+      </div>
+    </div>
+    <div class="chart-container" style="display: flex; align-items: center; justify-content: center;">
+      <canvas id="todayBreakdownChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- RECENT ATTENDANCE TABLE -->
+<div class="glass-card">
+  <div class="card-title-row">
+    <div>
+      <h3 class="card-title">
+        <i class="ri-history-line"></i> Recent Activity Logs
+      </h3>
+      <p class="card-subtitle">Live real-time feed of the latest authenticated check-ins</p>
+    </div>
+    <a href="{{ url_for('records') }}" class="btn btn-sm btn-outline-red">
+      <span>View All Records</span>
+      <i class="ri-arrow-right-line"></i>
+    </a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>Student ID</th>
+          <th>Roll No</th>
+          <th>Student Name</th>
+          <th>Department</th>
+          <th>Class</th>
+          <th>Time</th>
+          <th>Method</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if stats.recent_records %}
+          {% for r in stats.recent_records %}
+            <tr>
+              <td class="font-mono" style="color: var(--neon-coral); font-weight: 600;">
+                {{ r.student_id }}
+              </td>
+              <td class="font-mono">{{ r.roll_no }}</td>
+              <td style="font-weight: 600;">{{ r.name }}</td>
+              <td>{{ r.department }}</td>
+              <td>{{ r.class_name }}</td>
+              <td class="font-mono" style="color: var(--text-muted);">{{ r.time }}</td>
+              <td>
+                <span class="badge-method">
+                  {% if r.method == 'Face Recognition' %}
+                    <i class="ri-camera-lens-line" style="color: var(--neon-coral);"></i> Face ID
+                  {% elif r.method == 'QR Scan' %}
+                    <i class="ri-qr-scan-line" style="color: #60a5fa;"></i> QR Code
+                  {% else %}
+                    <i class="ri-keyboard-line"></i> Manual
+                  {% endif %}
+                </span>
+              </td>
+              <td>
+                <span class="badge-status {{ r.status }}">{{ r.status }}</span>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-dim);">
+              <i class="ri-inbox-line" style="font-size: 2rem; display: block; margin-bottom: 8px;"></i>
+              No attendance records logged yet today. Use Face ID or QR Scanner to mark attendance.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // 1. Weekly Attendance Chart
+    const weeklyData = {{ stats.weekly_data | tojson }};
+    const labels = weeklyData.map(d => d.label);
+    const presentCounts = weeklyData.map(d => d.present);
+    const lateCounts = weeklyData.map(d => d.late);
+    const absentCounts = weeklyData.map(d => d.absent);
+
+    const ctxWeekly = document.getElementById('weeklyAttendanceChart').getContext('2d');
+    new Chart(ctxWeekly, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Present (On-time)',
+            data: presentCounts,
+            backgroundColor: 'rgba(0, 230, 118, 0.75)',
+            borderColor: '#00e676',
+            borderWidth: 1,
+            borderRadius: 6
+          },
+          {
+            label: 'Late Arrival',
+            data: lateCounts,
+            backgroundColor: 'rgba(255, 171, 0, 0.75)',
+            borderColor: '#ffab00',
+            borderWidth: 1,
+            borderRadius: 6
+          },
+          {
+            label: 'Absent',
+            data: absentCounts,
+            backgroundColor: 'rgba(255, 23, 68, 0.55)',
+            borderColor: '#ff1744',
+            borderWidth: 1,
+            borderRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            stacked: true,
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#8b95a8', font: { family: 'Outfit', size: 11 } }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#8b95a8', font: { family: 'JetBrains Mono', size: 11 }, precision: 0 }
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: '#f0f3fa', boxWidth: 12, font: { family: 'Outfit', size: 12 } }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(14, 18, 28, 0.95)',
+            borderColor: 'rgba(229, 9, 20, 0.3)',
+            borderWidth: 1,
+            titleFont: { family: 'Space Grotesk' },
+            bodyFont: { family: 'Outfit' }
+          }
+        }
+      }
+    });
+
+    // 2. Today's Breakdown Doughnut Chart
+    const ctxToday = document.getElementById('todayBreakdownChart').getContext('2d');
+    const presentToday = {{ stats.present_today }};
+    const lateToday = {{ stats.late_today }};
+    const absentToday = {{ stats.absent_today }};
+
+    new Chart(ctxToday, {
+      type: 'doughnut',
+      data: {
+        labels: ['Present', 'Late', 'Absent'],
+        datasets: [{
+          data: [presentToday, lateToday, absentToday],
+          backgroundColor: [
+            'rgba(0, 230, 118, 0.85)',
+            'rgba(255, 171, 0, 0.85)',
+            'rgba(255, 23, 68, 0.85)'
+          ],
+          borderColor: '#0d0f16',
+          borderWidth: 3,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#f0f3fa', boxWidth: 12, padding: 14, font: { family: 'Outfit', size: 12 } }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(14, 18, 28, 0.95)',
+            borderColor: 'rgba(229, 9, 20, 0.3)',
+            borderWidth: 1
+          }
+        }
+      }
+    });
+  });
+</script>
+{% endblock %}

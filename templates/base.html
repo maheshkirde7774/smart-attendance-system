@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Dashboard{% endblock %} - SMART ATTENDANCE</title>
+  
+  <!-- Remix Icons & Modern Web Fonts -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet" />
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- HTML5-QRCode Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <!-- Custom Futuristic Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<div class="app-container">
+  <!-- SIDEBAR NAVIGATION -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand-icon">
+        <i class="ri-fingerprint-2-line"></i>
+      </div>
+      <div class="brand-text">
+        <h1>SMART ATTENDANCE</h1>
+        <p>Enterprise AI Edition</p>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <span class="nav-section-title">Main Menu</span>
+      <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <i class="ri-dashboard-3-line"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="{{ url_for('students') }}" class="nav-item {% if request.endpoint == 'students' %}active{% endif %}">
+        <i class="ri-user-star-line"></i>
+        <span>Students</span>
+      </a>
+
+      <span class="nav-section-title">Attendance Capture</span>
+      <a href="{{ url_for('attendance') }}" class="nav-item {% if request.endpoint == 'attendance' %}active{% endif %}">
+        <i class="ri-checkbox-multiple-line"></i>
+        <span>Mark Attendance</span>
+      </a>
+      <a href="{{ url_for('qr_scanner') }}" class="nav-item {% if request.endpoint == 'qr_scanner' %}active{% endif %}">
+        <i class="ri-qr-scan-2-line"></i>
+        <span>QR Scanner</span>
+      </a>
+      <a href="{{ url_for('face_recognition_page') }}" class="nav-item {% if request.endpoint == 'face_recognition_page' %}active{% endif %}">
+        <i class="ri-scan-2-line"></i>
+        <span>Face Recognition</span>
+      </a>
+
+      <span class="nav-section-title">Logs & Insights</span>
+      <a href="{{ url_for('records') }}" class="nav-item {% if request.endpoint == 'records' %}active{% endif %}">
+        <i class="ri-file-list-3-line"></i>
+        <span>Attendance Records</span>
+      </a>
+      <a href="{{ url_for('analytics') }}" class="nav-item {% if request.endpoint == 'analytics' %}active{% endif %}">
+        <i class="ri-line-chart-line"></i>
+        <span>Analytics</span>
+      </a>
+      <a href="{{ url_for('reports') }}" class="nav-item {% if request.endpoint == 'reports' %}active{% endif %}">
+        <i class="ri-file-chart-line"></i>
+        <span>Reports</span>
+      </a>
+
+      <span class="nav-section-title">Administration</span>
+      <a href="{{ url_for('settings_page') }}" class="nav-item {% if request.endpoint == 'settings_page' %}active{% endif %}">
+        <i class="ri-settings-4-line"></i>
+        <span>Settings</span>
+      </a>
+      <a href="{{ url_for('logout') }}" class="nav-item">
+        <i class="ri-logout-box-r-line"></i>
+        <span>Logout</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-mini-card">
+        <div class="user-avatar">
+          {{ session.get('name', 'Admin')[0] | upper }}
+        </div>
+        <div class="user-info">
+          <div class="user-name">{{ session.get('name', 'Administrator') }}</div>
+          <div class="user-role">{{ session.get('role', 'Faculty') }} • Verified</div>
+        </div>
+        <a href="{{ url_for('logout') }}" class="logout-link" title="Sign Out">
+          <i class="ri-shut-down-line"></i>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN VIEWPORT WRAPPER -->
+  <main class="main-wrapper">
+    <!-- STICKY TOP HEADER -->
+    <header class="app-header">
+      <div class="header-left">
+        <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Toggle Navigation">
+          <i class="ri-menu-2-line"></i>
+        </button>
+        <div class="header-tagline">
+          <div class="header-title">
+            <span>SMART ATTENDANCE</span>
+            <span class="system-badge">v2.6 LIVE</span>
+          </div>
+          <div class="header-subtitle">
+            <i class="ri-sparkling-2-line" style="color: var(--primary-red);"></i> "Attend Today for a Better Tomorrow"
+          </div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Live Clock & Date Badge -->
+        <div class="live-clock-badge font-mono">
+          <div class="live-pulse"></div>
+          <div class="clock-time" id="liveClockTime">{{ current_time }}</div>
+          <div class="clock-date">{{ current_date }}</div>
+        </div>
+
+        <div class="header-actions">
+          <a href="{{ url_for('qr_scanner') }}" class="btn-header-action" title="Quick QR Scan">
+            <i class="ri-qr-code-line"></i>
+            <span>Scan QR</span>
+          </a>
+          <a href="{{ url_for('face_recognition_page') }}" class="btn-header-action" title="Open Face Recognition">
+            <i class="ri-camera-lens-line"></i>
+            <span>Face ID</span>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENT BODY -->
+    <section class="content-body">
+      {% block content %}{% endblock %}
+    </section>
+  </main>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- FLASH MESSAGES CONVERTED TO TOASTS -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        {% for category, msg in messages %}
+          showToast(
+            "{{ 'Notice' if category == 'info' else category | capitalize }}",
+            "{{ msg }}",
+            "{{ category }}"
+          );
+        {% endfor %}
+      });
+    </script>
+  {% endif %}
+{% endwith %}
+
+<!-- APP SCRIPT -->
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

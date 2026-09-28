@@ -1,0 +1,554 @@
+{% extends "base.html" %}
+
+{% block title %}Student Management{% endblock %}
+
+{% block content %}
+<div class="dashboard-header-row" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h2 style="font-size: 1.65rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px;">
+      <i class="ri-user-star-line" style="color: var(--primary-red);"></i>
+      <span>Student Directory & Biometric Profiles</span>
+    </h2>
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">
+      Manage student records, generate unique student QR codes, and train facial recognition models.
+    </p>
+  </div>
+
+  <button type="button" class="btn btn-primary" onclick="openModal('addStudentModal')">
+    <i class="ri-user-add-line"></i>
+    <span>Enroll New Student</span>
+  </button>
+</div>
+
+<!-- SEARCH & FILTER TOOLBAR -->
+<div class="glass-card" style="padding: 16px 20px; margin-bottom: 24px;">
+  <form method="GET" action="{{ url_for('students') }}" style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+    <div style="flex: 2; min-width: 220px; position: relative;">
+      <i class="ri-search-line" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-dim);"></i>
+      <input type="text" name="search" class="form-control" placeholder="Search by Student Name, ID, or Roll No..." value="{{ search }}" style="padding-left: 38px;">
+    </div>
+
+    <div style="flex: 1; min-width: 170px;">
+      <select name="department" class="form-select" onchange="this.form.submit()">
+        <option value="">All Departments</option>
+        {% for dept in departments %}
+          <option value="{{ dept }}" {% if selected_dept == dept %}selected{% endif %}>{{ dept }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="flex: 1; min-width: 140px;">
+      <select name="class_name" class="form-select" onchange="this.form.submit()">
+        <option value="">All Classes</option>
+        {% for cls in classes %}
+          <option value="{{ cls }}" {% if selected_class == cls %}selected{% endif %}>{{ cls }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-secondary">
+      <i class="ri-filter-3-line"></i>
+      <span>Filter</span>
+    </button>
+
+    {% if search or selected_dept or selected_class %}
+      <a href="{{ url_for('students') }}" class="btn btn-outline-red" title="Clear Filters">
+        <i class="ri-refresh-line"></i> Reset
+      </a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- STUDENTS TABLE -->
+<div class="glass-card">
+  <div class="table-responsive">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>Student ID</th>
+          <th>Roll No</th>
+          <th>Student Name</th>
+          <th>Email</th>
+          <th>Department</th>
+          <th>Class</th>
+          <th>Face Biometrics</th>
+          <th>QR Pass</th>
+          <th style="text-align: right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if students %}
+          {% for s in students %}
+            <tr>
+              <td class="font-mono" style="color: var(--neon-coral); font-weight: 700;">
+                {{ s.student_id }}
+              </td>
+              <td class="font-mono">{{ s.roll_no }}</td>
+              <td>
+                <div style="font-weight: 700; color: #fff;">{{ s.name }}</div>
+              </td>
+              <td style="color: var(--text-muted); font-size: 0.82rem;">{{ s.email }}</td>
+              <td>
+                <span class="badge-method">{{ s.department }}</span>
+              </td>
+              <td>{{ s.class_name }}</td>
+              <td>
+                {% if s.face_registered %}
+                  <span class="badge-status Present" style="font-size: 0.72rem;">
+                    <i class="ri-shield-check-line"></i> Enrolled
+                  </span>
+                {% else %}
+                  <button type="button" class="btn btn-sm btn-outline-red" style="font-size: 0.72rem; padding: 4px 8px;" onclick="openFaceRegisterModal('{{ s.student_id }}', '{{ s.name }}')">
+                    <i class="ri-scan-2-line"></i> Register Face
+                  </button>
+                {% endif %}
+              </td>
+              <td>
+                <button type="button" class="btn btn-sm btn-secondary" style="font-size: 0.72rem; padding: 4px 10px;" onclick="viewQrModal('{{ s.student_id }}', '{{ s.name }}', '{{ s.roll_no }}', '{{ s.department }}', '{{ s.qr_code }}')">
+                  <i class="ri-qr-code-line" style="color: var(--neon-coral);"></i> View QR
+                </button>
+              </td>
+              <td style="text-align: right;">
+                <div style="display: inline-flex; gap: 6px;">
+                  <button type="button" class="btn-icon" title="Edit Student" onclick="openEditModal({{ s.id }}, '{{ s.student_id }}', '{{ s.roll_no }}', '{{ s.name }}', '{{ s.email }}', '{{ s.department }}', '{{ s.class_name }}')">
+                    <i class="ri-edit-line"></i>
+                  </button>
+                  <button type="button" class="btn-icon" title="Face Calibration" onclick="openFaceRegisterModal('{{ s.student_id }}', '{{ s.name }}')">
+                    <i class="ri-camera-switch-line"></i>
+                  </button>
+                  <button type="button" class="btn-icon" title="Delete Student" style="color: var(--primary-red);" onclick="deleteStudent({{ s.id }}, '{{ s.name }}')">
+                    <i class="ri-delete-bin-line"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-dim);">
+              <i class="ri-user-search-line" style="font-size: 2.2rem; display: block; margin-bottom: 10px;"></i>
+              No students found matching your criteria. Try adjusting your search or add a new student.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ================= MODALS ================= -->
+
+<!-- 1. ADD STUDENT MODAL -->
+<div id="addStudentModal" class="modal-backdrop">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <i class="ri-user-add-line"></i> Enroll New Student
+      </h3>
+      <button type="button" class="btn-close-modal">&times;</button>
+    </div>
+    <form id="addStudentForm" onsubmit="submitAddStudent(event)">
+      <div class="modal-body">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label class="form-label">Student ID</label>
+            <input type="text" id="add_student_id" name="student_id" class="form-control font-mono" placeholder="STU-2026-009" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Roll Number</label>
+            <input type="text" id="add_roll_no" name="roll_no" class="form-control font-mono" placeholder="CS109" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="add_name" name="name" class="form-control" placeholder="e.g. Liam Sterling" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="add_email" name="email" class="form-control" placeholder="liam.s@smartattendance.edu" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <select id="add_department" name="department" class="form-select" required>
+              <option value="">Select Dept</option>
+              <option value="Computer Science">Computer Science</option>
+              <option value="AI & Data Science">AI & Data Science</option>
+              <option value="Information Technology">Information Technology</option>
+              <option value="Electronics">Electronics</option>
+              <option value="Mechanical">Mechanical</option>
+              <option value="Civil Engineering">Civil Engineering</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Class / Section</label>
+            <input type="text" id="add_class_name" name="class_name" class="form-control" placeholder="CS-3A" required>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+          <i class="ri-check-line"></i> Save & Generate QR
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 2. EDIT STUDENT MODAL -->
+<div id="editStudentModal" class="modal-backdrop">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <i class="ri-edit-line"></i> Edit Student Record
+      </h3>
+      <button type="button" class="btn-close-modal">&times;</button>
+    </div>
+    <form id="editStudentForm" onsubmit="submitEditStudent(event)">
+      <input type="hidden" id="edit_id" name="id">
+      <div class="modal-body">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label class="form-label">Student ID</label>
+            <input type="text" id="edit_student_id" class="form-control font-mono" disabled>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Roll Number</label>
+            <input type="text" id="edit_roll_no" name="roll_no" class="form-control font-mono" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="edit_name" name="name" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="edit_email" name="email" class="form-control" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <select id="edit_department" name="department" class="form-select" required>
+              <option value="Computer Science">Computer Science</option>
+              <option value="AI & Data Science">AI & Data Science</option>
+              <option value="Information Technology">Information Technology</option>
+              <option value="Electronics">Electronics</option>
+              <option value="Mechanical">Mechanical</option>
+              <option value="Civil Engineering">Civil Engineering</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Class / Section</label>
+            <input type="text" id="edit_class_name" name="class_name" class="form-control" required>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+          <i class="ri-check-line"></i> Update Record
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 3. QR CODE DISPLAY MODAL -->
+<div id="qrModal" class="modal-backdrop">
+  <div class="modal-dialog" style="max-width: 440px;">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <i class="ri-qr-code-line"></i> Student Digital ID Pass
+      </h3>
+      <button type="button" class="btn-close-modal">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding: 30px 20px;">
+      <div id="qrCardPrintArea" style="background: #ffffff; padding: 24px; border-radius: 16px; display: inline-block; color: #08090c; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <div style="font-size: 0.8rem; font-weight: 800; letter-spacing: 0.1em; color: #e50914; text-transform: uppercase; margin-bottom: 8px;">
+          SMART ATTENDANCE PASS
+        </div>
+        <img id="qrModalImage" src="" alt="Student QR Code" style="width: 220px; height: 220px; display: block; margin: 0 auto; border-radius: 8px;">
+        <div id="qrModalName" style="font-weight: 800; font-size: 1.1rem; margin-top: 12px; color: #111;"></div>
+        <div id="qrModalId" class="font-mono" style="font-size: 0.88rem; font-weight: 700; color: #e50914;"></div>
+        <div id="qrModalDept" style="font-size: 0.78rem; color: #555; margin-top: 2px;"></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content: space-between;">
+      <button type="button" class="btn btn-secondary" onclick="printQrCard()">
+        <i class="ri-printer-line"></i> Print Pass
+      </button>
+      <a id="qrDownloadBtn" href="#" download="" class="btn btn-primary">
+        <i class="ri-download-2-line"></i> Download PNG
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- 4. FACE REGISTRATION CAMERA MODAL -->
+<div id="faceRegisterModal" class="modal-backdrop">
+  <div class="modal-dialog" style="max-width: 580px;">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <i class="ri-camera-lens-fill" style="color: var(--primary-red);"></i> Face Biometrics Enrollment
+      </h3>
+      <button type="button" class="btn-close-modal" onclick="closeFaceRegisterModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center;">
+      <p style="color: var(--text-muted); font-size: 0.84rem; margin-bottom: 16px;">
+        Enrolling Face ID for: <strong id="faceRegStudentName" style="color: #fff;"></strong> (<span id="faceRegStudentID" class="font-mono" style="color: var(--neon-coral);"></span>)
+      </p>
+
+      <div style="position: relative; width: 100%; height: 320px; background: #000; border-radius: var(--radius-lg); overflow: hidden; border: 2px solid var(--border-red-subtle);">
+        <video id="faceRegVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+        <div class="scanner-overlay">
+          <div class="scan-frame corner-brackets" style="width: 200px; height: 200px;">
+            <div class="laser-scanline"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sample Capture Progress Bar -->
+      <div style="margin-top: 18px;">
+        <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 6px;">
+          <span>Biometric Training Samples</span>
+          <span id="faceSampleCounter" class="font-mono" style="color: var(--neon-coral); font-weight: 700;">0 / 5</span>
+        </div>
+        <div style="width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+          <div id="faceProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--primary-red), var(--neon-coral)); transition: width 0.3s ease;"></div>
+        </div>
+      </div>
+
+      <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 12px;">
+        <i class="ri-information-line"></i> Please look straight at the camera. Samples will be analyzed using OpenCV Haar Cascade.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeFaceRegisterModal()">Cancel</button>
+      <button type="button" id="btnStartCapture" class="btn btn-primary" onclick="captureFaceSamples()">
+        <i class="ri-camera-fill"></i> Start Face Capture
+      </button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Add Student Submission
+  async function submitAddStudent(e) {
+    e.preventDefault();
+    const form = document.getElementById('addStudentForm');
+    const formData = new FormData(form);
+
+    try {
+      const res = await fetch("{{ url_for('api_add_student') }}", {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Student Enrolled', data.message, 'success');
+        closeModal('addStudentModal');
+        setTimeout(() => location.reload(), 800);
+      } else {
+        showToast('Enrollment Failed', data.message, 'error');
+      }
+    } catch (err) {
+      showToast('Error', err.message, 'error');
+    }
+  }
+
+  // Open Edit Modal
+  function openEditModal(id, student_id, roll_no, name, email, dept, cls) {
+    document.getElementById('edit_id').value = id;
+    document.getElementById('edit_student_id').value = student_id;
+    document.getElementById('edit_roll_no').value = roll_no;
+    document.getElementById('edit_name').value = name;
+    document.getElementById('edit_email').value = email;
+    document.getElementById('edit_department').value = dept;
+    document.getElementById('edit_class_name').value = cls;
+    openModal('editStudentModal');
+  }
+
+  // Submit Edit
+  async function submitEditStudent(e) {
+    e.preventDefault();
+    const form = document.getElementById('editStudentForm');
+    const formData = new FormData(form);
+
+    try {
+      const res = await fetch("{{ url_for('api_edit_student') }}", {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Record Updated', data.message, 'success');
+        closeModal('editStudentModal');
+        setTimeout(() => location.reload(), 800);
+      } else {
+        showToast('Update Failed', data.message, 'error');
+      }
+    } catch (err) {
+      showToast('Error', err.message, 'error');
+    }
+  }
+
+  // Delete Student
+  async function deleteStudent(id, name) {
+    if (!confirm(`Are you sure you want to delete student "${name}"? This will also remove their attendance logs.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch("{{ url_for('api_delete_student') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Deleted', data.message, 'info');
+        setTimeout(() => location.reload(), 700);
+      } else {
+        showToast('Delete Failed', data.message, 'error');
+      }
+    } catch (err) {
+      showToast('Error', err.message, 'error');
+    }
+  }
+
+  // View QR Code Modal
+  function viewQrModal(student_id, name, roll_no, dept, qr_filename) {
+    const qrUrl = `/static/qrcodes/${qr_filename || ('qr_' + student_id + '.png')}`;
+    document.getElementById('qrModalImage').src = qrUrl;
+    document.getElementById('qrModalName').textContent = name;
+    document.getElementById('qrModalId').textContent = `${student_id} • Roll: ${roll_no}`;
+    document.getElementById('qrModalDept').textContent = dept;
+    
+    const dlBtn = document.getElementById('qrDownloadBtn');
+    dlBtn.href = qrUrl;
+    dlBtn.download = `${student_id}_QR_PASS.png`;
+
+    openModal('qrModal');
+  }
+
+  // Print QR Card
+  function printQrCard() {
+    const printContents = document.getElementById('qrCardPrintArea').outerHTML;
+    const printWindow = window.open('', '', 'width=600,height=600');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Student Attendance Pass</title>
+          <style>
+            body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #fff; }
+          </style>
+        </head>
+        <body>${printContents}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 400);
+  }
+
+  // ================= FACE REGISTRATION CAMERA STREAM & MULTI-SAMPLE CAPTURE =================
+  let faceStream = null;
+  let currentEnrollStudentId = null;
+
+  async function openFaceRegisterModal(student_id, name) {
+    currentEnrollStudentId = student_id;
+    document.getElementById('faceRegStudentName').textContent = name;
+    document.getElementById('faceRegStudentID').textContent = student_id;
+    document.getElementById('faceSampleCounter').textContent = '0 / 5';
+    document.getElementById('faceProgressBar').style.width = '0%';
+    document.getElementById('btnStartCapture').disabled = false;
+
+    openModal('faceRegisterModal');
+
+    const video = document.getElementById('faceRegVideo');
+    try {
+      faceStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+      });
+      video.srcObject = faceStream;
+    } catch (err) {
+      showToast('Camera Permission Denied', 'Unable to access webcam. Please allow camera permissions.', 'error');
+    }
+  }
+
+  function closeFaceRegisterModal() {
+    if (faceStream) {
+      faceStream.getTracks().forEach(t => t.stop());
+      faceStream = null;
+    }
+    closeModal('faceRegisterModal');
+  }
+
+  async function captureFaceSamples() {
+    const btn = document.getElementById('btnStartCapture');
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ri-loader-4-line ri-spin"></i> Capturing...`;
+
+    const video = document.getElementById('faceRegVideo');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+
+    const samples = [];
+    const totalSamples = 5;
+
+    for (let i = 1; i <= totalSamples; i++) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const b64 = canvas.toDataURL('image/jpeg', 0.9);
+      samples.push(b64);
+
+      document.getElementById('faceSampleCounter').textContent = `${i} / ${totalSamples}`;
+      document.getElementById('faceProgressBar').style.width = `${(i / totalSamples) * 100}%`;
+
+      AudioEngine.playSuccess();
+      await new Promise(r => setTimeout(r, 450)); // Delay between snapshots
+    }
+
+    btn.innerHTML = `<i class="ri-brain-line ri-spin"></i> Training OpenCV Model...`;
+
+    try {
+      const res = await fetch("{{ url_for('api_register_face') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: currentEnrollStudentId,
+          images: samples
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Face Registration Complete', data.message, 'success');
+        closeFaceRegisterModal();
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast('Registration Error', data.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = `<i class="ri-camera-fill"></i> Retry Face Capture`;
+      }
+    } catch (err) {
+      showToast('Error', err.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ri-camera-fill"></i> Retry Face Capture`;
+    }
+  }
+</script>
+{% endblock %}

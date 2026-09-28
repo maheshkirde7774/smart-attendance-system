@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}Mark Attendance & Records{% endblock %}
+
+{% block content %}
+<div class="dashboard-header-row" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h2 style="font-size: 1.65rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px;">
+      <i class="ri-checkbox-multiple-line" style="color: var(--primary-red);"></i>
+      <span>Mark Attendance & Verified Records</span>
+    </h2>
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">
+      Select an automated verification pipeline or audit historical attendance records.
+    </p>
+  </div>
+
+  <div style="display: flex; gap: 10px;">
+    <button type="button" class="btn btn-secondary" onclick="openModal('manualMarkModal')">
+      <i class="ri-keyboard-line"></i>
+      <span>Manual Check-in</span>
+    </button>
+  </div>
+</div>
+
+<!-- TWO LARGE PROMINENT INTERACTIVE OPTIONS -->
+<div class="attendance-modes-grid" style="margin-bottom: 36px;">
+  <!-- OPTION 1: FACE RECOGNITION -->
+  <div class="mode-card" onclick="window.location.href='{{ url_for('face_recognition_page') }}'">
+    <div class="mode-icon-giant">
+      <i class="ri-camera-lens-fill"></i>
+    </div>
+    <h3 class="mode-title">FACE RECOGNITION</h3>
+    <p class="mode-desc">
+      Contactless biometric authentication. OpenCV Haar Cascade detects the student's face, compares against the trained biometric model, and instantly logs attendance.
+    </p>
+
+    <div class="mode-features-list">
+      <span class="mode-feature-pill"><i class="ri-check-line" style="color: var(--status-present);"></i> Real-time OpenCV</span>
+      <span class="mode-feature-pill"><i class="ri-shield-keyhole-line" style="color: var(--neon-coral);"></i> Rejects Unknowns</span>
+      <span class="mode-feature-pill"><i class="ri-time-line" style="color: var(--status-late);"></i> Auto-Late Check</span>
+      <span class="mode-feature-pill"><i class="ri-prohibited-line" style="color: #60a5fa;"></i> Prevents Duplicates</span>
+    </div>
+
+    <a href="{{ url_for('face_recognition_page') }}" class="btn btn-primary btn-lg" style="width: 80%;">
+      <i class="ri-camera-fill"></i> Launch Face Scanner
+    </a>
+  </div>
+
+  <!-- OPTION 2: QR ATTENDANCE -->
+  <div class="mode-card" onclick="window.location.href='{{ url_for('qr_scanner') }}'">
+    <div class="mode-icon-giant">
+      <i class="ri-qr-scan-2-line"></i>
+    </div>
+    <h3 class="mode-title">QR ATTENDANCE</h3>
+    <p class="mode-desc">
+      Rapid optical check-in. Scan the student's encrypted unique ID badge using any webcam or mobile camera for instant verification and exact timestamping.
+    </p>
+
+    <div class="mode-features-list">
+      <span class="mode-feature-pill"><i class="ri-flashlight-line" style="color: var(--neon-coral);"></i> Instant Scanning</span>
+      <span class="mode-feature-pill"><i class="ri-barcode-box-line" style="color: #60a5fa;"></i> Unique Student ID</span>
+      <span class="mode-feature-pill"><i class="ri-time-line" style="color: var(--status-late);"></i> Precise Timestamp</span>
+      <span class="mode-feature-pill"><i class="ri-lock-line" style="color: var(--status-present);"></i> Anti-Duplicate Lock</span>
+    </div>
+
+    <a href="{{ url_for('qr_scanner') }}" class="btn btn-secondary btn-lg" style="width: 80%; border-color: var(--border-red-subtle);">
+      <i class="ri-qr-code-line"></i> Launch QR Scanner
+    </a>
+  </div>
+</div>
+
+<!-- ATTENDANCE RECORDS TABLE SECTION -->
+<div class="glass-card" id="recordsSection">
+  <div class="card-title-row">
+    <div>
+      <h3 class="card-title">
+        <i class="ri-file-list-3-line"></i> Attendance Verification Registry
+      </h3>
+      <p class="card-subtitle">Comprehensive logs with search, multi-factor filtering and exports</p>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+      <a href="{{ url_for('api_export_csv', search=search, date=selected_date, department=selected_dept, status=selected_status) }}" class="btn btn-sm btn-outline-red">
+        <i class="ri-file-excel-2-line"></i> Export CSV
+      </a>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="exportRecordsPDF()">
+        <i class="ri-file-pdf-2-line"></i> Export PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- FILTERS TOOLBAR -->
+  <form method="GET" action="{{ url_for('records') }}" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+    <div style="flex: 2; min-width: 200px; position: relative;">
+      <i class="ri-search-line" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-dim);"></i>
+      <input type="text" name="search" class="form-control" placeholder="Search by Student Name, ID, or Roll No..." value="{{ search or '' }}" style="padding-left: 38px;">
+    </div>
+
+    <div style="flex: 1; min-width: 140px;">
+      <input type="date" name="date" class="form-control" value="{{ selected_date or '' }}" title="Filter by Date">
+    </div>
+
+    <div style="flex: 1; min-width: 160px;">
+      <select name="department" class="form-select">
+        <option value="">All Departments</option>
+        {% for dept in departments %}
+          <option value="{{ dept }}" {% if selected_dept == dept %}selected{% endif %}>{{ dept }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="flex: 1; min-width: 130px;">
+      <select name="status" class="form-select">
+        <option value="">All Statuses</option>
+        <option value="Present" {% if selected_status == 'Present' %}selected{% endif %}>Present</option>
+        <option value="Late" {% if selected_status == 'Late' %}selected{% endif %}>Late</option>
+        <option value="Absent" {% if selected_status == 'Absent' %}selected{% endif %}>Absent</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-secondary">
+      <i class="ri-filter-line"></i> Filter
+    </button>
+
+    {% if search or selected_date or selected_dept or selected_status %}
+      <a href="{{ url_for('records') }}" class="btn btn-outline-red">
+        <i class="ri-refresh-line"></i> Reset
+      </a>
+    {% endif %}
+  </form>
+
+  <!-- TABLE -->
+  <div class="table-responsive" id="printRecordsArea">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>Student ID</th>
+          <th>Roll No</th>
+          <th>Student Name</th>
+          <th>Department</th>
+          <th>Class</th>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Status</th>
+          <th>Method</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set display_records = records if records is defined else stats.today_records %}
+        {% if display_records %}
+          {% for r in display_records %}
+            <tr>
+              <td class="font-mono" style="color: var(--neon-coral); font-weight: 700;">{{ r.student_id }}</td>
+              <td class="font-mono">{{ r.roll_no }}</td>
+              <td style="font-weight: 600;">{{ r.name }}</td>
+              <td>{{ r.department }}</td>
+              <td>{{ r.class_name }}</td>
+              <td class="font-mono" style="color: var(--text-muted);">{{ r.date }}</td>
+              <td class="font-mono" style="color: #fff;">{{ r.time }}</td>
+              <td>
+                <span class="badge-status {{ r.status }}">{{ r.status }}</span>
+              </td>
+              <td>
+                <span class="badge-method">
+                  {% if r.method == 'Face Recognition' %}
+                    <i class="ri-camera-lens-line" style="color: var(--neon-coral);"></i> Face Recognition
+                  {% elif r.method == 'QR Scan' %}
+                    <i class="ri-qr-scan-line" style="color: #60a5fa;"></i> QR Scan
+                  {% else %}
+                    <i class="ri-keyboard-line"></i> Manual
+                  {% endif %}
+                </span>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-dim);">
+              <i class="ri-file-search-line" style="font-size: 2.2rem; display: block; margin-bottom: 10px;"></i>
+              No records match your selected criteria.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MANUAL MARK ATTENDANCE MODAL -->
+<div id="manualMarkModal" class="modal-backdrop">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <i class="ri-keyboard-line"></i> Manual Attendance Override
+      </h3>
+      <button type="button" class="btn-close-modal">&times;</button>
+    </div>
+    <form id="manualMarkForm" onsubmit="submitManualAttendance(event)">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Select Student</label>
+          <select id="manual_student_id" name="student_id" class="form-select" required>
+            <option value="">-- Choose Student --</option>
+            {% if students %}
+              {% for s in students %}
+                <option value="{{ s.student_id }}">{{ s.student_id }} - {{ s.name }} ({{ s.roll_no }})</option>
+              {% endfor %}
+            {% endif %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Status Override</label>
+          <select id="manual_status" name="status" class="form-select">
+            <option value="Present">Present (On-Time)</option>
+            <option value="Late">Late Arrival</option>
+          </select>
+        </div>
+
+        <p style="font-size: 0.78rem; color: var(--text-dim);">
+          <i class="ri-information-line"></i> Manual check-in records the current date and time with the method tag 'Manual'. Prevents duplicate entries.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+          <i class="ri-check-double-line"></i> Confirm & Mark
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  async function submitManualAttendance(e) {
+    e.preventDefault();
+    const studentId = document.getElementById('manual_student_id').value;
+    const status = document.getElementById('manual_status').value;
+
+    if (!studentId) {
+      showToast('Validation Error', 'Please select a student', 'warning');
+      return;
+    }
+
+    try {
+      const res = await fetch("{{ url_for('api_mark_attendance_manual') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: studentId, status: status })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Attendance Logged', data.message, 'success');
+        closeModal('manualMarkModal');
+        setTimeout(() => location.reload(), 900);
+      } else {
+        showToast(data.already_marked ? 'Duplicate Prevented' : 'Error', data.message, data.already_marked ? 'warning' : 'error');
+      }
+    } catch (err) {
+      showToast('Error', err.message, 'error');
+    }
+  }
+
+  function exportRecordsPDF() {
+    const tableHtml = document.getElementById('printRecordsArea').innerHTML;
+    const printWindow = window.open('', '', 'width=900,height=700');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Attendance Report - SMART ATTENDANCE</title>
+          <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 24px; color: #111; }
+            h2 { color: #b80610; margin-bottom: 4px; }
+            p { color: #555; font-size: 0.9rem; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+            th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; }
+            th { background: #f4f4f4; text-transform: uppercase; font-size: 0.75rem; }
+            .badge-status { font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <h2>SMART ATTENDANCE - VERIFICATION LOGS</h2>
+          <p>Generated on ${new Date().toLocaleString()} | Official Academic Record</p>
+          ${tableHtml}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 450);
+  }
+</script>
+{% endblock %}

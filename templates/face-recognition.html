@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}Face Recognition Attendance{% endblock %}
+
+{% block content %}
+<div class="dashboard-header-row" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h2 style="font-size: 1.65rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px;">
+      <i class="ri-camera-lens-fill" style="color: var(--primary-red);"></i>
+      <span>OpenCV Biometric Face Recognition</span>
+    </h2>
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">
+      Real-time Haar Cascade facial detection with cosine biometric matching. Rejects unknown faces.
+    </p>
+  </div>
+
+  <div style="display: flex; gap: 10px;">
+    <button type="button" class="btn btn-secondary" id="btnToggleFaceRecognition" onclick="toggleRecognition()">
+      <i id="faceToggleIcon" class="ri-pause-line"></i>
+      <span id="faceToggleText">Pause Recognition</span>
+    </button>
+    <a href="{{ url_for('attendance') }}" class="btn btn-outline-red">
+      <i class="ri-arrow-left-line"></i> Back
+    </a>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; align-items: start;">
+  <!-- LEFT: CAMERA VIEWPORT & FACE RETICLE -->
+  <div class="glass-card" style="padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="live-pulse" style="width: 10px; height: 10px;"></span>
+        <span style="font-size: 0.85rem; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.05em;">
+          Biometric Vision Feed
+        </span>
+      </div>
+      <div id="visionStatusPill" class="badge-status Present" style="font-size: 0.72rem;">
+        SCANNING ACTIVE
+      </div>
+    </div>
+
+    <!-- Camera Box -->
+    <div class="camera-card">
+      <div class="camera-viewport">
+        <video id="faceVideo" autoplay playsinline class="camera-video"></video>
+        <!-- Overlay Canvas for Drawing OpenCV Bounding Box -->
+        <canvas id="faceOverlayCanvas" class="face-box-overlay"></canvas>
+        
+        <!-- Default scanner overlay -->
+        <div id="defaultScannerReticle" class="scanner-overlay">
+          <div class="scan-frame corner-brackets" style="width: 250px; height: 250px;">
+            <div class="laser-scanline"></div>
+          </div>
+        </div>
+
+        <!-- HUD Bar -->
+        <div class="camera-hud-bar">
+          <div class="hud-status-chip font-mono">
+            <i class="ri-radar-line" style="color: var(--neon-coral);"></i>
+            <span id="fpsIndicator">30 FPS • Auto-Analyze</span>
+          </div>
+          <div class="hud-status-chip font-mono" id="hudFaceCount">
+            0 Faces Tracked
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: var(--text-dim);">
+      <span><i class="ri-information-line"></i> Anti-Spoofing & Unknown Intruder Lock Enabled</span>
+      <span class="font-mono">OpenCV v4.8+ / Haar Cascade</span>
+    </div>
+  </div>
+
+  <!-- RIGHT: VERIFICATION HUD & LIVE ROSTER -->
+  <div style="display: flex; flex-direction: column; gap: 20px;">
+    <!-- Active Biometric Verification Card -->
+    <div class="glass-card" id="bioResultCard" style="border-color: var(--border-red-subtle);">
+      <div class="card-title-row" style="margin-bottom: 12px;">
+        <h3 class="card-title" style="font-size: 1rem;">
+          <i class="ri-fingerprint-line"></i> Biometric Identification
+        </h3>
+        <span id="bioStatusBadge" class="badge-status Present" style="display: none;">VERIFIED</span>
+      </div>
+
+      <div id="bioAwaiting" style="padding: 26px; text-align: center; color: var(--text-dim);">
+        <i class="ri-scan-2-line" style="font-size: 2.4rem; display: block; margin-bottom: 10px; color: var(--border-red-subtle);"></i>
+        Looking for registered faces in front of camera...
+      </div>
+
+      <!-- Match Found -->
+      <div id="bioDetails" style="display: none;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+          <div id="bioAvatarBox" style="width: 54px; height: 54px; border-radius: 12px; background: rgba(0, 230, 118, 0.15); border: 1px solid var(--status-present); display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--status-present);">
+            <i class="ri-user-smile-line"></i>
+          </div>
+          <div>
+            <div id="bioStudentName" style="font-size: 1.15rem; font-weight: 800; color: #fff;"></div>
+            <div id="bioStudentID" class="font-mono" style="font-size: 0.84rem; color: var(--neon-coral); font-weight: 600;"></div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(10, 12, 18, 0.6); padding: 12px; border-radius: 10px; font-size: 0.8rem;">
+          <div>
+            <span style="color: var(--text-dim); display: block;">Department:</span>
+            <strong id="bioDept" style="color: #fff;"></strong>
+          </div>
+          <div>
+            <span style="color: var(--text-dim); display: block;">Class:</span>
+            <strong id="bioClass" style="color: #fff;"></strong>
+          </div>
+          <div>
+            <span style="color: var(--text-dim); display: block;">Timestamp:</span>
+            <strong id="bioTime" class="font-mono" style="color: var(--status-present);"></strong>
+          </div>
+          <div>
+            <span style="color: var(--text-dim); display: block;">Biometric Match:</span>
+            <strong id="bioConfidence" class="font-mono" style="color: var(--neon-coral);"></strong>
+          </div>
+        </div>
+
+        <div id="bioAlertMsg" style="margin-top: 12px; font-size: 0.78rem; text-align: center; color: var(--status-present); font-weight: 600;"></div>
+      </div>
+
+      <!-- Unknown Intruder Alert Box -->
+      <div id="bioUnknownAlert" style="display: none; padding: 18px; background: rgba(255, 23, 68, 0.12); border: 1px solid rgba(255, 23, 68, 0.35); border-radius: var(--radius-md); text-align: center;">
+        <i class="ri-alarm-warning-line" style="font-size: 2.2rem; color: var(--status-absent); display: block; margin-bottom: 8px;"></i>
+        <h4 style="color: var(--status-absent); font-weight: 800; text-transform: uppercase; font-size: 0.95rem;">
+          Unregistered Face Detected
+        </h4>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
+          This person does not match any registered student in the database. Attendance is NOT marked.
+        </p>
+      </div>
+    </div>
+
+    <!-- Live Verified Attendance Log Today -->
+    <div class="glass-card" style="flex: 1;">
+      <div class="card-title-row" style="margin-bottom: 12px;">
+        <h3 class="card-title" style="font-size: 0.95rem;">
+          <i class="ri-list-check-2"></i> Verified Check-ins Today
+        </h3>
+        <span class="badge-status Present font-mono" id="todayBioCount">{{ stats.present_today + stats.late_today }} Today</span>
+      </div>
+
+      <div style="max-height: 280px; overflow-y: auto;">
+        <ul id="liveBioList" style="list-style: none; display: flex; flex-direction: column; gap: 8px;">
+          {% if stats.today_records %}
+            {% for r in stats.today_records %}
+              <li style="background: rgba(18, 22, 33, 0.45); padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                <div>
+                  <strong style="color: #fff;">{{ r.name }}</strong>
+                  <span class="font-mono" style="color: var(--text-muted); font-size: 0.75rem; margin-left: 6px;">{{ r.student_id }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="font-mono" style="color: var(--text-dim); font-size: 0.75rem;">{{ r.time }}</span>
+                  <span class="badge-status {{ r.status }}" style="font-size: 0.68rem; padding: 2px 8px;">{{ r.status }}</span>
+                </div>
+              </li>
+            {% endfor %}
+          {% else %}
+            <li id="emptyBioListNote" style="text-align: center; padding: 20px; color: var(--text-dim); font-size: 0.82rem;">
+              No face check-ins recorded yet today.
+            </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  let videoStream = null;
+  let recognitionInterval = null;
+  let isRecognitionActive = true;
+  let isProcessingFrame = false;
+  let lastSuccessfulStudent = null;
+  let cooldownTimestamp = 0;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initFaceCamera();
+  });
+
+  async function initFaceCamera() {
+    const video = document.getElementById('faceVideo');
+    try {
+      videoStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+      });
+      video.srcObject = videoStream;
+
+      video.onloadedmetadata = () => {
+        // Size the overlay canvas
+        const overlay = document.getElementById('faceOverlayCanvas');
+        overlay.width = video.videoWidth;
+        overlay.height = video.videoHeight;
+        startRecognitionLoop();
+      };
+    } catch (err) {
+      showToast('Camera Error', 'Could not open video stream. Please grant camera permissions.', 'error');
+    }
+  }
+
+  function startRecognitionLoop() {
+    if (recognitionInterval) clearInterval(recognitionInterval);
+    // Send frame every 850ms to prevent server throttling
+    recognitionInterval = setInterval(analyzeFrame, 850);
+  }
+
+  async function analyzeFrame() {
+    if (!isRecognitionActive || isProcessingFrame) return;
+
+    const video = document.getElementById('faceVideo');
+    if (!video || video.readyState !== 4) return;
+
+    isProcessingFrame = true;
+
+    // Grab frame from video to an offscreen canvas
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = video.videoWidth;
+    tempCanvas.height = video.videoHeight;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+
+    const b64Image = tempCanvas.toDataURL('image/jpeg', 0.85);
+
+    try {
+      const res = await fetch("{{ url_for('api_recognize_face') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: b64Image })
+      });
+      const data = await res.json();
+      handleRecognitionResult(data, tempCanvas.width, tempCanvas.height);
+    } catch (e) {
+      console.warn("Recognition loop fetch error:", e);
+    } finally {
+      isProcessingFrame = false;
+    }
+  }
+
+  function handleRecognitionResult(data, frameWidth, frameHeight) {
+    const overlay = document.getElementById('faceOverlayCanvas');
+    const ctx = overlay.getContext('2d');
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+    const hudCount = document.getElementById('hudFaceCount');
+
+    // Case 1: No Face Detected
+    if (data.status === 'no_face' || !data.box) {
+      hudCount.textContent = '0 Faces Tracked';
+      return;
+    }
+
+    hudCount.textContent = '1 Face Tracked';
+    const [x, y, w, h] = data.box;
+
+    // Because the video is mirrored via CSS (scaleX(-1)), mirror the box coordinates horizontally!
+    const mirroredX = frameWidth - (x + w);
+
+    // Case 2: Face Recognized!
+    if (data.match && data.student) {
+      // Draw Glowing Neon Green Bounding Box
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#00e676';
+      ctx.shadowColor = '#00e676';
+      ctx.shadowBlur = 15;
+      ctx.strokeRect(mirroredX, y, w, h);
+
+      // Label background
+      ctx.fillStyle = 'rgba(0, 230, 118, 0.9)';
+      ctx.shadowBlur = 0;
+      ctx.fillRect(mirroredX, y > 28 ? y - 28 : y + h, w, 28);
+
+      // Label text
+      ctx.fillStyle = '#08090c';
+      ctx.font = 'bold 13px Outfit, sans-serif';
+      ctx.fillText(`${data.student.name} (${data.confidence}%)`, mirroredX + 6, (y > 28 ? y - 9 : y + h + 19));
+
+      const now = Date.now();
+      // Cooldown to prevent re-alerting the same student repeatedly within 5 seconds
+      if (lastSuccessfulStudent !== data.student.student_id || (now - cooldownTimestamp > 5000)) {
+        lastSuccessfulStudent = data.student.student_id;
+        cooldownTimestamp = now;
+
+        updateBioSuccessHUD(data);
+        if (data.already_marked) {
+          AudioEngine.playWarning();
+          showToast('Already Marked Today', data.message, 'warning');
+        } else {
+          AudioEngine.playSuccess();
+          showToast('Biometric Match Verified', data.message, 'success');
+          prependToLiveBioList(data.student, data.record);
+        }
+      }
+    }
+    // Case 3: Unknown Person / Unregistered Face
+    else {
+      // Draw Crimson Red Bounding Box
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#ff1744';
+      ctx.shadowColor = '#ff1744';
+      ctx.shadowBlur = 18;
+      ctx.strokeRect(mirroredX, y, w, h);
+
+      // Label background
+      ctx.fillStyle = 'rgba(255, 23, 68, 0.9)';
+      ctx.shadowBlur = 0;
+      ctx.fillRect(mirroredX, y > 28 ? y - 28 : y + h, w, 28);
+
+      // Label text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px Outfit, sans-serif';
+      ctx.fillText(`UNKNOWN PERSON (${data.confidence || 0}%)`, mirroredX + 6, (y > 28 ? y - 9 : y + h + 19));
+
+      updateBioUnknownHUD();
+    }
+  }
+
+  function updateBioSuccessHUD(data) {
+    document.getElementById('bioAwaiting').style.display = 'none';
+    document.getElementById('bioUnknownAlert').style.display = 'none';
+    document.getElementById('bioDetails').style.display = 'block';
+
+    const badge = document.getElementById('bioStatusBadge');
+    badge.style.display = 'inline-flex';
+    badge.className = `badge-status ${data.record ? data.record.status : 'Present'}`;
+    badge.textContent = data.already_marked ? 'ALREADY MARKED' : (data.record ? data.record.status : 'VERIFIED');
+
+    document.getElementById('bioStudentName').textContent = data.student.name;
+    document.getElementById('bioStudentID').textContent = `${data.student.student_id} • Roll: ${data.student.roll_no}`;
+    document.getElementById('bioDept').textContent = data.student.department;
+    document.getElementById('bioClass').textContent = data.student.class_name;
+    document.getElementById('bioTime').textContent = data.record ? data.record.time : new Date().toLocaleTimeString();
+    document.getElementById('bioConfidence').textContent = `${data.confidence}% (Haar/Cosine)`;
+    document.getElementById('bioAlertMsg').textContent = data.message;
+  }
+
+  function updateBioUnknownHUD() {
+    document.getElementById('bioAwaiting').style.display = 'none';
+    document.getElementById('bioDetails').style.display = 'none';
+    document.getElementById('bioUnknownAlert').style.display = 'block';
+
+    const badge = document.getElementById('bioStatusBadge');
+    badge.style.display = 'inline-flex';
+    badge.className = 'badge-status Absent';
+    badge.textContent = 'UNVERIFIED';
+  }
+
+  function prependToLiveBioList(student, record) {
+    const list = document.getElementById('liveBioList');
+    const emptyNote = document.getElementById('emptyBioListNote');
+    if (emptyNote) emptyNote.remove();
+
+    const li = document.createElement('li');
+    li.style.cssText = 'background: rgba(18, 22, 33, 0.45); padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; animation: toast-in 0.3s ease; border-left: 3px solid var(--status-present);';
+    li.innerHTML = `
+      <div>
+        <strong style="color: #fff;">${student.name}</strong>
+        <span class="font-mono" style="color: var(--text-muted); font-size: 0.75rem; margin-left: 6px;">${student.student_id}</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="font-mono" style="color: var(--text-dim); font-size: 0.75rem;">${record ? record.time : ''}</span>
+        <span class="badge-status ${record ? record.status : 'Present'}" style="font-size: 0.68rem; padding: 2px 8px;">${record ? record.status : 'Present'}</span>
+      </div>
+    `;
+    list.insertBefore(li, list.firstChild);
+  }
+
+  function toggleRecognition() {
+    const icon = document.getElementById('faceToggleIcon');
+    const text = document.getElementById('faceToggleText');
+    const pill = document.getElementById('visionStatusPill');
+
+    if (isRecognitionActive) {
+      isRecognitionActive = false;
+      icon.className = 'ri-play-line';
+      text.textContent = 'Resume Recognition';
+      pill.textContent = 'PAUSED';
+      pill.className = 'badge-status Late';
+      showToast('Vision Paused', 'OpenCV recognition loop suspended.', 'info');
+    } else {
+      isRecognitionActive = true;
+      icon.className = 'ri-pause-line';
+      text.textContent = 'Pause Recognition';
+      pill.textContent = 'SCANNING ACTIVE';
+      pill.className = 'badge-status Present';
+      showToast('Vision Resumed', 'Scanning for student biometrics.', 'info');
+    }
+  }
+</script>
+{% endblock %}
