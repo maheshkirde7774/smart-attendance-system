@@ -98,25 +98,35 @@
                     <i class="ri-shield-check-line"></i> Enrolled
                   </span>
                 {% else %}
-                  <button type="button" class="btn btn-sm btn-outline-red" style="font-size: 0.72rem; padding: 4px 8px;" onclick="openFaceRegisterModal('{{ s.student_id }}', '{{ s.name }}')">
+                  <button type="button" class="btn btn-sm btn-outline-red" style="font-size: 0.72rem; padding: 4px 8px;"
+                    data-student-id="{{ s.student_id }}" data-name="{{ s.name }}"
+                    onclick="openFaceRegisterModal(this.dataset.studentId, this.dataset.name)">
                     <i class="ri-scan-2-line"></i> Register Face
                   </button>
                 {% endif %}
               </td>
               <td>
-                <button type="button" class="btn btn-sm btn-secondary" style="font-size: 0.72rem; padding: 4px 10px;" onclick="viewQrModal('{{ s.student_id }}', '{{ s.name }}', '{{ s.roll_no }}', '{{ s.department }}', '{{ s.qr_code }}')">
+                <button type="button" class="btn btn-sm btn-secondary" style="font-size: 0.72rem; padding: 4px 10px;"
+                  data-student-id="{{ s.student_id }}" data-name="{{ s.name }}" data-roll-no="{{ s.roll_no }}" data-department="{{ s.department }}" data-qr-code="{{ s.qr_code }}"
+                  onclick="viewQrModal(this.dataset.studentId, this.dataset.name, this.dataset.rollNo, this.dataset.department, this.dataset.qrCode)">
                   <i class="ri-qr-code-line" style="color: var(--neon-coral);"></i> View QR
                 </button>
               </td>
               <td style="text-align: right;">
                 <div style="display: inline-flex; gap: 6px;">
-                  <button type="button" class="btn-icon" title="Edit Student" onclick="openEditModal({{ s.id }}, '{{ s.student_id }}', '{{ s.roll_no }}', '{{ s.name }}', '{{ s.email }}', '{{ s.department }}', '{{ s.class_name }}')">
+                  <button type="button" class="btn-icon" title="Edit Student"
+                    data-id="{{ s.id }}" data-student-id="{{ s.student_id }}" data-roll-no="{{ s.roll_no }}" data-name="{{ s.name }}" data-email="{{ s.email }}" data-department="{{ s.department }}" data-class-name="{{ s.class_name }}"
+                    onclick="openEditModal(this.dataset.id, this.dataset.studentId, this.dataset.rollNo, this.dataset.name, this.dataset.email, this.dataset.department, this.dataset.className)">
                     <i class="ri-edit-line"></i>
                   </button>
-                  <button type="button" class="btn-icon" title="Face Calibration" onclick="openFaceRegisterModal('{{ s.student_id }}', '{{ s.name }}')">
+                  <button type="button" class="btn-icon" title="Face Calibration"
+                    data-student-id="{{ s.student_id }}" data-name="{{ s.name }}"
+                    onclick="openFaceRegisterModal(this.dataset.studentId, this.dataset.name)">
                     <i class="ri-camera-switch-line"></i>
                   </button>
-                  <button type="button" class="btn-icon" title="Delete Student" style="color: var(--primary-red);" onclick="deleteStudent({{ s.id }}, '{{ s.name }}')">
+                  <button type="button" class="btn-icon" title="Delete Student" style="color: var(--primary-red);"
+                    data-id="{{ s.id }}" data-name="{{ s.name }}"
+                    onclick="deleteStudent(this.dataset.id, this.dataset.name)">
                     <i class="ri-delete-bin-line"></i>
                   </button>
                 </div>

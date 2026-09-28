@@ -7,6 +7,7 @@
   
   <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 </head>
 <body class="login-body">
 
@@ -75,15 +76,16 @@
 <!-- Flash messages -->
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
+    <div id="flashMessagesData" style="display: none;">
+      {% for category, msg in messages %}
+        <div data-category="{{ category }}" data-title="{{ 'Notice' if category == 'info' else category | capitalize }}" data-message="{{ msg }}"></div>
+      {% endfor %}
+    </div>
     <script>
       document.addEventListener('DOMContentLoaded', () => {
-        {% for category, msg in messages %}
-          showToast(
-            "{{ 'Notice' if category == 'info' else category | capitalize }}",
-            "{{ msg }}",
-            "{{ category }}"
-          );
-        {% endfor %}
+        document.querySelectorAll('#flashMessagesData div').forEach((el) => {
+          showToast(el.dataset.title, el.dataset.message, el.dataset.category);
+        });
       });
     </script>
   {% endif %}

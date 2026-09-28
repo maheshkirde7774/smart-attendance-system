@@ -126,11 +126,12 @@
               <td class="font-mono" style="color: var(--status-present);">{{ s.present_count }}</td>
               <td class="font-mono" style="color: var(--status-late);">{{ s.late_count }}</td>
               <td>
+                {% set rate_level = 'rate-high' if s.percentage >= 75 else ('rate-medium' if s.percentage >= 50 else 'rate-low') %}
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <div style="flex: 1; height: 6px; width: 60px; background: var(--bg-tertiary); border-radius: 3px; overflow: hidden;">
-                    <div style="width: {{ s.percentage }}%; height: 100%; background: {% if s.percentage >= 75 %}var(--status-present){% elif s.percentage >= 50 %}var(--status-late){% else %}var(--status-absent){% endif %};"></div>
+                  <div class="compliance-bar">
+                    <div class="compliance-fill {{ rate_level }}" style="width: {{ s.percentage }}%;"></div>
                   </div>
-                  <span class="font-mono" style="font-weight: 700; font-size: 0.85rem; color: {% if s.percentage >= 75 %}var(--status-present){% elif s.percentage >= 50 %}var(--status-late){% else %}var(--status-absent){% endif %};">
+                  <span class="font-mono compliance-text {{ rate_level }}">
                     {{ s.percentage }}%
                   </span>
                 </div>
@@ -154,10 +155,23 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script id="analyticsDailyTrends" type="application/json">
+  {{ analytics.daily_trends | tojson }}
+</script>
+<script id="analyticsMethodsData" type="application/json">
+  {{ analytics.methods_data | tojson }}
+</script>
+<script id="analyticsDeptStats" type="application/json">
+  {{ analytics.dept_stats | tojson }}
+</script>
+<script id="analyticsStatusData" type="application/json">
+  {{ analytics.status_data | tojson }}
+</script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     // 1. Daily Trend Chart (Line Chart with Neon Red Accent)
-    const dailyData = {{ analytics.daily_trends | tojson }};
+    const dailyDataEl = document.getElementById('analyticsDailyTrends');
+    const dailyData = dailyDataEl ? JSON.parse(dailyDataEl.textContent || '[]') : [];
     const dailyLabels = dailyData.map(d => d.label);
     const dailyPcts = dailyData.map(d => d.percentage);
 
@@ -207,7 +221,8 @@
     });
 
     // 2. Method Breakdown Doughnut
-    const methods = {{ analytics.methods_data | tojson }};
+    const methodsEl = document.getElementById('analyticsMethodsData');
+    const methods = methodsEl ? JSON.parse(methodsEl.textContent || '{}') : {};
     const methodLabels = Object.keys(methods).length ? Object.keys(methods) : ['Face Recognition', 'QR Scan', 'Manual'];
     const methodCounts = Object.keys(methods).length ? Object.values(methods) : [12, 8, 2];
 
@@ -234,7 +249,8 @@
     });
 
     // 3. Department Performance Horizontal Bar
-    const deptStats = {{ analytics.dept_stats | tojson }};
+    const deptStatsEl = document.getElementById('analyticsDeptStats');
+    const deptStats = deptStatsEl ? JSON.parse(deptStatsEl.textContent || '[]') : [];
     const deptNames = deptStats.map(d => d.department);
     const deptPcts = deptStats.map(d => d.percentage);
 
@@ -275,7 +291,8 @@
     });
 
     // 4. Status Ratio Doughnut
-    const statusData = {{ analytics.status_data | tojson }};
+    const statusDataEl = document.getElementById('analyticsStatusData');
+    const statusData = statusDataEl ? JSON.parse(statusDataEl.textContent || '{}') : {};
     const statusLabels = Object.keys(statusData).length ? Object.keys(statusData) : ['Present', 'Late', 'Absent'];
     const statusCounts = Object.keys(statusData).length ? Object.values(statusData) : [15, 4, 3];
 

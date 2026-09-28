@@ -208,6 +208,7 @@ a {
   text-transform: uppercase;
   background: linear-gradient(90deg, #ffffff 40%, var(--neon-coral) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -852,7 +853,7 @@ a {
 
 .custom-table tbody tr:hover {
   background: rgba(28, 34, 52, 0.75);
-  transform: scale([1.002]);
+  transform: scale(1.002);
   box-shadow: 0 4px 18px rgba(0,0,0,0.3);
 }
 
@@ -935,6 +936,51 @@ a {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-subtle);
   color: var(--text-muted);
+}
+
+/* Compliance Progress Bar & Rate Classes */
+.compliance-bar {
+  flex: 1;
+  height: 6px;
+  width: 60px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.compliance-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.compliance-fill.rate-high {
+  background: var(--status-present);
+}
+
+.compliance-fill.rate-medium {
+  background: var(--status-late);
+}
+
+.compliance-fill.rate-low {
+  background: var(--status-absent);
+}
+
+.compliance-text {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.compliance-text.rate-high {
+  color: var(--status-present);
+}
+
+.compliance-text.rate-medium {
+  color: var(--status-late);
+}
+
+.compliance-text.rate-low {
+  color: var(--status-absent);
 }
 
 /* ==========================================================================

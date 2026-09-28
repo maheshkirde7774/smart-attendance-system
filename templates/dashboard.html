@@ -211,10 +211,21 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script id="dashboardWeeklyData" type="application/json">
+  {{ stats.weekly_data | tojson }}
+</script>
+<script id="dashboardBreakdownData" type="application/json">
+  {
+    "present": {{ stats.present_today }},
+    "late": {{ stats.late_today }},
+    "absent": {{ stats.absent_today }}
+  }
+</script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     // 1. Weekly Attendance Chart
-    const weeklyData = {{ stats.weekly_data | tojson }};
+    const weeklyDataEl = document.getElementById('dashboardWeeklyData');
+    const weeklyData = weeklyDataEl ? JSON.parse(weeklyDataEl.textContent || '[]') : [];
     const labels = weeklyData.map(d => d.label);
     const presentCounts = weeklyData.map(d => d.present);
     const lateCounts = weeklyData.map(d => d.late);
@@ -285,11 +296,13 @@
     });
 
     // 2. Today's Breakdown Doughnut Chart
-    const ctxToday = document.getElementById('todayBreakdownChart').getContext('2d');
-    const presentToday = {{ stats.present_today }};
-    const lateToday = {{ stats.late_today }};
-    const absentToday = {{ stats.absent_today }};
+    const breakdownEl = document.getElementById('dashboardBreakdownData');
+    const breakdown = breakdownEl ? JSON.parse(breakdownEl.textContent || '{}') : {};
+    const presentToday = breakdown.present || 0;
+    const lateToday = breakdown.late || 0;
+    const absentToday = breakdown.absent || 0;
 
+    const ctxToday = document.getElementById('todayBreakdownChart').getContext('2d');
     new Chart(ctxToday, {
       type: 'doughnut',
       data: {

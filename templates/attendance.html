@@ -25,7 +25,7 @@
 <!-- TWO LARGE PROMINENT INTERACTIVE OPTIONS -->
 <div class="attendance-modes-grid" style="margin-bottom: 36px;">
   <!-- OPTION 1: FACE RECOGNITION -->
-  <div class="mode-card" onclick="window.location.href='{{ url_for('face_recognition_page') }}'">
+  <div class="mode-card" data-href="{{ url_for('face_recognition_page') }}" onclick="window.location.href=this.dataset.href">
     <div class="mode-icon-giant">
       <i class="ri-camera-lens-fill"></i>
     </div>
@@ -47,7 +47,7 @@
   </div>
 
   <!-- OPTION 2: QR ATTENDANCE -->
-  <div class="mode-card" onclick="window.location.href='{{ url_for('qr_scanner') }}'">
+  <div class="mode-card" data-href="{{ url_for('qr_scanner') }}" onclick="window.location.href=this.dataset.href">
     <div class="mode-icon-giant">
       <i class="ri-qr-scan-2-line"></i>
     </div>
